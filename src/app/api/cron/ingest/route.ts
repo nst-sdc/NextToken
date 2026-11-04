@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllFeeds } from '@/lib/sources';
 import { dedupeByUrl, dedupeByTitleSimilarity } from '@/lib/dedupe';
 import { upsertArticles } from '@/lib/db';
-import { summarizeArticle } from '@/lib/ai';
+import { summarizeArticle, summarizeBatch } from '@/lib/ai';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -22,16 +22,18 @@ export async function GET(request: NextRequest) {
     const deduped = dedupeByTitleSimilarity(dedupedByUrl);
     console.log(`After dedupe: ${deduped.length} articles`);
 
-    const articlesWithSummaries = await Promise.all(
-      deduped.map(async (article) => {
-        const summary = await summarizeArticle(article.title, article.title);
-        return {
-          ...article,
-          summary: summary?.summary ?? null,
-          why_it_matters: summary?.why_it_matters ?? null,
-        };
-      })
+    // Limit to 20 articles per run to control API costs
+    const toProcess = deduped.slice(0, 20);
+
+    const summaries = await summarizeBatch(
+      toProcess.map((a) => ({ title: a.title, url: a.url }))
     );
+
+    const articlesWithSummaries = toProcess.map((article, i) => ({
+      ...article,
+      summary: summaries[i]?.summary ?? null,
+      why_it_matters: summaries[i]?.why_it_matters ?? null,
+    }));
 
     const saved = await upsertArticles(articlesWithSummaries);
     console.log(`Saved ${saved.length} articles`);
@@ -40,6 +42,8 @@ export async function GET(request: NextRequest) {
       success: true,
       fetched: rawArticles.length,
       deduped: deduped.length,
+      processed: toProcess.length,
+      summarized: summaries.filter(Boolean).length,
       saved: saved.length,
       timestamp: new Date().toISOString(),
     });
