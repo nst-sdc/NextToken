@@ -1,64 +1,42 @@
 import Link from 'next/link';
+import { getTrends } from '@/lib/db';
+import { TrendRow, TrendRowSkeleton, ThemeToggle } from '@/components';
+import type { Trend } from '@/types';
 
 export const metadata = {
   title: 'Trending Skills & Roles - StackPulse',
   description: 'Weekly tracking of in-demand tech skills and job roles.',
 };
 
-const mockSkills = [
-  { name: 'Python', mentions: 1240, change: 12.5 },
-  { name: 'TypeScript', mentions: 1180, change: 8.3 },
-  { name: 'React', mentions: 1150, change: 5.2 },
-  { name: 'AWS', mentions: 980, change: 15.1 },
-  { name: 'Kubernetes', mentions: 890, change: 22.4 },
-  { name: 'Machine Learning', mentions: 820, change: 18.7 },
-  { name: 'PostgreSQL', mentions: 750, change: 3.1 },
-  { name: 'Docker', mentions: 720, change: 6.8 },
-  { name: 'GraphQL', mentions: 580, change: 11.2 },
-  { name: 'Rust', mentions: 450, change: 31.5 },
-];
-
-const mockRoles = [
-  { name: 'Software Engineer', mentions: 3200, change: 4.2 },
-  { name: 'ML Engineer', mentions: 1800, change: 28.5 },
-  { name: 'DevOps Engineer', mentions: 1200, change: 15.3 },
-  { name: 'Backend Engineer', mentions: 1100, change: 6.7 },
-  { name: 'Full Stack Developer', mentions: 950, change: 2.1 },
-  { name: 'Data Scientist', mentions: 880, change: 9.4 },
-  { name: 'Platform Engineer', mentions: 620, change: 42.1 },
-  { name: 'AI Researcher', mentions: 450, change: 35.8 },
-  { name: 'Security Engineer', mentions: 410, change: 19.2 },
-  { name: 'Solutions Architect', mentions: 380, change: 8.9 },
-];
-
-function TrendRow({ name, mentions, change }: { name: string; mentions: number; change: number }) {
-  const isPositive = change >= 0;
-  return (
-    <tr className="border-b border-border/50 hover:bg-surface/50 transition-colors">
-      <td className="px-4 py-3 font-mono text-sm font-medium">{name}</td>
-      <td className="px-4 py-3 text-text-muted text-sm">{mentions.toLocaleString()}</td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center gap-1 text-sm font-medium ${isPositive ? 'text-success' : 'text-danger'}`}>
-          <span>{isPositive ? '▲' : '▼'}</span>
-          <span>{Math.abs(change).toFixed(1)}%</span>
-        </span>
-      </td>
-    </tr>
-  );
+async function fetchTrends() {
+  try {
+    const [skills, roles] = await Promise.all([
+      getTrends('skill', 10),
+      getTrends('role', 10),
+    ]);
+    return { skills, roles };
+  } catch {
+    return { skills: [] as Trend[], roles: [] as Trend[] };
+  }
 }
 
-export default function TrendsPage() {
+export default async function TrendsPage() {
+  const { skills, roles } = await fetchTrends();
+
   return (
     <main className="min-h-screen px-4 py-8 md:px-12 lg:px-20">
       <div className="max-w-[1100px] mx-auto">
-        <header className="mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-            Trending Skills & Roles
-          </h1>
-          <p className="text-lg text-text-muted max-w-2xl">
-            Weekly analysis of job postings showing which skills and roles are rising
-            or falling in demand. Data updates every Monday.
-          </p>
+        <header className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Trending Skills & Roles
+            </h1>
+            <p className="text-lg text-text-muted max-w-2xl">
+              Weekly analysis of job postings showing which skills and roles are rising
+              or falling in demand. Data updates every Monday.
+            </p>
+          </div>
+          <ThemeToggle />
         </header>
 
         <section className="mb-12" aria-labelledby="skills-heading">
@@ -76,9 +54,11 @@ export default function TrendsPage() {
                 </tr>
               </thead>
               <tbody>
-                {mockSkills.map((skill, i) => (
-                  <TrendRow key={i} {...skill} />
-                ))}
+                {skills.length > 0 ? (
+                  skills.map((skill, i) => <TrendRow key={skill.id} trend={skill} rank={i + 1} />)
+                ) : (
+                  [1, 2, 3, 4, 5].map((i) => <TrendRowSkeleton key={i} />)
+                )}
               </tbody>
             </table>
           </div>
@@ -99,9 +79,11 @@ export default function TrendsPage() {
                 </tr>
               </thead>
               <tbody>
-                {mockRoles.map((role, i) => (
-                  <TrendRow key={i} {...role} />
-                ))}
+                {roles.length > 0 ? (
+                  roles.map((role, i) => <TrendRow key={role.id} trend={role} rank={i + 1} />)
+                ) : (
+                  [1, 2, 3, 4, 5].map((i) => <TrendRowSkeleton key={i} />)
+                )}
               </tbody>
             </table>
           </div>
