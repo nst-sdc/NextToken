@@ -11,7 +11,10 @@ interface HomePageProps {
 async function fetchArticles(category?: string, page = 1, q?: string) {
   try {
     if (q) {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/search?q=${encodeURIComponent(q)}&page=${page}&limit=12`);
+      // Use relative URL for server-side fetch
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=${page}&limit=12`, {
+        cache: 'no-store',
+      });
       return res.json();
     }
     return await getArticles({ category, page, limit: 12 });
